@@ -1,12 +1,20 @@
+#######################################################
+# Reinforcement Learning Assigment #1 (MVA 2023-2024) #
+# Author: HUNOUT Lilian                               #
+#######################################################
+
+
+# imports
 from gymnasium.wrappers import TimeLimit
 from env_hiv import HIVPatient
 
 from copy import deepcopy
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 import os
 import random
 import torch
+
 
 env = TimeLimit(
     env=HIVPatient(domain_randomization=True), max_episode_steps=200
@@ -18,6 +26,7 @@ env = TimeLimit(
 # ENJOY!
 
 
+# Replay buffer to store and sample experiences
 class ReplayBuffer:
     def __init__(self, capacity, device):
         self.capacity = int(capacity)  # capacity of the buffer
@@ -41,6 +50,7 @@ class ReplayBuffer:
         return len(self.data)
 
 
+# Function to select the greedy action based on a neural network's output
 def greedy_action(network, state):
     device = "cuda" if next(network.parameters()).is_cuda else "cpu"
     with torch.no_grad():
@@ -48,6 +58,7 @@ def greedy_action(network, state):
         return torch.argmax(Q).item()
 
 
+# Definition of a Multi-Layer Perceptron (MLP) neural network
 class MLP(torch.nn.Module):
     def __init__(self, state_dim, nb_actions):
         super(MLP, self).__init__()
@@ -66,6 +77,7 @@ class MLP(torch.nn.Module):
         return x
 
 
+# Deep Q-Network (DQN) class
 class DQN:
     def __init__(self, config, model):
         device = "cuda" if next(model.parameters()).is_cuda else "cpu"
@@ -315,6 +327,7 @@ model = MLP(state_dim, nb_actions).to(device)
 agent = DQN(config, model)
 
 
+# Main project agent class
 class ProjectAgent:
     def __init__(self):
         self.dqn_agent = DQN(config, model)
@@ -330,7 +343,8 @@ class ProjectAgent:
         self.dqn_agent.load(path)
 
 
-def fill_buffer(env, agent, buffer_size):
+# Function to initialize the replay buffer
+def buffer_init(env, agent, buffer_size):
     state, _ = env.reset()
     for _ in range(buffer_size):
         action = agent.act(state)
@@ -342,18 +356,26 @@ def fill_buffer(env, agent, buffer_size):
             state = next_state
 
 
-if __name__ == "__main__":
-    # Set the seed
-    seed = 42
+# Function to set seed for reproducibility
+def seed_everything(seed: int = 42):
     random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    torch.cuda.manual_seed_all(seed)
 
-    # Fill the buffer
-    fill_buffer(env, agent, 1000)
 
+if __name__ == "__main__":
+    # Set the seed
+    seed_everything(seed=42)
+
+    # Buffer initialization
+    buffer_init(env, agent, 1000)
+
+    # Training the agent
     ep_length, disc_rewards, tot_rewards, V0 = agent.train(env, 400)
     agent.save("./dqn_agent.pth")
     print("Training done")
